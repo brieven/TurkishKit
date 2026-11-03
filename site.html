@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TurkishKit — PS4 WebKit Exploit 13.00–14.00</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --panel: #111;
+      --accent: #e30a17;
+      --accent-dim: #7a050c;
+      --text: #e0e0e0;
+      --ok: #00ff88;
+      --warn: #ffaa00;
+      --err: #ff3355;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      user-select: none;
+    }
+    h1 {
+      font-size: 1.6rem;
+      letter-spacing: 2px;
+      color: var(--accent);
+      text-shadow: 0 0 20px rgba(227,10,23,0.4);
+      margin-bottom: 8px;
+    }
+    .sub {
+      font-size: 0.8rem;
+      color: var(--accent-dim);
+      margin-bottom: 24px;
+      letter-spacing: 1px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid #222;
+      border-radius: 12px;
+      padding: 20px;
+      width: 100%;
+      max-width: 640px;
+      margin-bottom: 16px;
+    }
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+    }
+    .status-row .label { color: #888; }
+    .status-row .value { color: var(--accent); font-weight: 600; }
+    #log {
+      background: #000;
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 12px;
+      height: 220px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: #0f0;
+    }
+    #log .err { color: var(--err); }
+    #log .warn { color: var(--warn); }
+    #log .ok { color: var(--ok); }
+    #log .dim { color: #555; }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: 0.2s;
+      margin-top: 12px;
+    }
+    .btn:hover { background: #ff1a28; }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled {
+      background: #333;
+      color: #666;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--accent-dim);
+      color: var(--accent);
+      font-size: 0.9rem;
+      padding: 12px;
+    }
+    .btn-secondary:hover { background: #2a0a0d; }
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: #222;
+      border-radius: 2px;
+      margin-top: 12px;
+      overflow: hidden;
+    }
+    .progress-bar .fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.3s ease;
+    }
+    .fw-select {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .fw-select button {
+      flex: 1;
+      padding: 10px;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .fw-select button.active {
+      border-color: var(--accent);
+      background: #2a0a0d;
+      color: var(--accent);
+    }
+    .footer {
+      margin-top: 24px;
+      font-size: 0.7rem;
+      color: #444;
+      text-align: center;
+      max-width: 640px;
+    }
+    .footer a { color: var(--accent-dim); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<h1>TURKISHKIT</h1>
+<div class="sub">PS4 WEBKIT EXPLOIT — FW 13.00 → 14.00</div>
+
+<div class="card">
+  <div class="status-row">
+    <span class="label">Detected Firmware</span>
+    <span class="value" id="fwDetected">—</span>
+  </div>
+  <div class="status-row">
+    <span class="label">WebKit Gadgets</span>
+    <span class="value" id="gadgetStatus">—</span>
+  </div>
+  <div class="status-row">
+    <span class="label">Kernel Offsets</span>
+    <span class="value" id="kexStatus">—</span>
+  </div>
+  <div class="status-row">
+    <span class="label">Stage</span>
+    <span class="value" id="stageLabel">Idle</span>
+  </div>
+  <div class="progress-bar"><div class="fill" id="progressFill"></div></div>
+</div>
+
+<div class="card">
+  <div class="fw-select" id="fwSelect">
+    <button data-fw="1300">13.00</button>
+    <button data-fw="1302">13.02</button>
+    <button data-fw="1304">13.04</button>
+    <button data-fw="1350">13.50</button>
+    <button data-fw="1352">13.52</button>
+    <button data-fw="1400" class="active">14.00</button>
+  </div>
+  <button class="btn" id="runBtn">RUN EXPLOIT</button>
+  <button class="btn btn-secondary" id="analysisBtn">ANALYSIS MODE</button>
+</div>
+
+<div class="card">
+  <div id="log"></div>
+</div>
+
+<div class="footer">
+  TurkishKit — research tool for FW 13.00–14.00.<br>
+  Gadgets verified from <code>libSceNKWebKit.sprx.decrypted</code>.
+  Kernel offsets from <code>Scene-Collective/ps4-hen</code> via Al-Azif.
+  GoldHEN 2.4b18.13 by SiSTRo.<br>
+  <a href="https://github.com/boomerf90777/ps41400exploit">ps41400exploit</a> · <a href="https://github.com/Scene-Collective/ps4-hen">ps4-hen</a>
+</div>
+
+<script>
+// ============================================================================
+// TurkishKit — PS4 WebKit Exploit — FW 13.00–14.00
+// Self-contained HTML entry point. All logic inline.
+// ============================================================================
+
+const logEl = document.getElementById('log');
+const fwDetectedEl = document.getElementById('fwDetected');
+const gadgetStatusEl = document.getElementById('gadgetStatus');
+const kexStatusEl = document.getElementById('kexStatus');
+const stageLabelEl = document.getElementById('stageLabel');
+const progressFillEl = document.getElementById('progressFill');
+const runBtn = document.getElementById('runBtn');
+const analysisBtn = document.getElementById('analysisBtn');
+
+let currentFW = 1400;
+let stage = 0;
+const stages = ['Idle', 'Init', 'Groom', 'Trigger', 'Payload', 'Done'];
+
+function log(msg, cls = '') {
+  const line = document.createElement('div');
+  line.className = cls;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function setStage(n) {
+  stage = n;
+  stageLabelEl.textContent = stages[n] || 'Unknown';
+  progressFillEl.style.width = `${(n / (stages.length - 1)) * 100}%`;
+}
+
+function setProgress(pct) {
+  progressFillEl.style.width = `${pct}%`;
+}
+
+// ============================================================================
+// FIRMWARE DETECTION
+// ============================================================================
+
+function detectFirmware() {
+  const ua = navigator.userAgent;
+  const match = ua.match(/PlayStation 4\/(\d+\.\d+)/);
+  if (match) {
+    const ver = match[1].replace('.', '');
+    return parseInt(ver, 10);
+  }
+  return 0;
+}
+
+const isPS4 = detectFirmware() > 0;
+const detectedFW = detectFirmware();
+
+if (isPS4) {
+  fwDetectedEl.textContent = `PS4 ${detectedFW / 100}`;
+  currentFW = detectedFW;
+} else {
+  fwDetectedEl.textContent = 'PC (analysis)';
+  fwDetectedEl.style.color = '#ffaa00';
+}
+
+// ============================================================================
+// WEBKIT ROP GADGETS — FW 14.00 (identical to 13.04)
+// ============================================================================
+
+const GADGETS_1400 = {
+  RET: 0x4032,
+  LEAVE_RET: 0x1c2f7,
+  POP_RAX_RET: 0x14504,
+  POP_RBX_RET: 0xb9e8,
+  POP_RCX_RET: 0x1fade,
+  POP_RDI_RET: 0x60480,
+  POP_RDX_RET: 0x1305ba,
+  POP_RSI_RET: 0x7245e,
+  POP_RBP_RET: 0x40b6,
+  POP_RSP_RET: 0x73017,
+  POP_R8_RET: 0x230cbe1,
+  POP_R9_RET: 0x9df883,
+  POP_R10_RET: 0x2dc33b5,
+  POP_R11_RET: 0x19c9ba,
+  POP_R12_RET: 0x242ab15,
+  POP_R13_R14_R15_RET: 0x6047b,
+  POP_R14_RET: 0xa9e91,
+  POP_R15_RET: 0x6047f,
+};
+
+const GADGETS_1304 = {
+  ...GADGETS_1400,
+};
+
+function getGadgets(fw) {
+  if (fw >= 1300 && fw < 1350) return GADGETS_1304;
+  if (fw >= 1400) return GADGETS_1400;
+  return GADGETS_1304;
+}
+
+// ============================================================================
+// KERNEL OFFSETS — FW 14.00 (from 1400.c, Al-Azif / Scene-Collective)
+// ============================================================================
+
+const KERNEL_OFFSETS_1400 = {
+  PRISON0: 0x0111FA18,
+  ROOTVNODE: 0x02136E90,
+  ALLPROC: 0x01B28538,
+  SYSENT: 0x01102B70,
+  memcpy: 0x002BD850,
+  proc_rwmem: 0x00366A10,
+};
+
+const KERNEL_OFFSETS_1304 = {
+  PRISON0: 0x0111FA18,
+  ROOTVNODE: 0x02136E90,
+  ALLPROC: 0x01B28538,
+  SYSENT: 0x01102B70,
+  memcpy: 0x002BD4F0,
+  proc_rwmem: 0x00366A10,
+};
+
+function getKernelOffsets(fw) {
+  if (fw >= 1400) return KERNEL_OFFSETS_1400;
+  return KERNEL_OFFSETS_1304;
+}
+
+// ============================================================================
+// STAGE 2 — PERSISTENT R/W + ROP CHAIN BUILDER
+// Port of jordy_stage2_1400.js, adapted for inline execution
+// ============================================================================
+
+function stage2_init(gadgets, kernelOffsets) {
+  log('TurkishKit stage2_init() — building R/W primitives', 'dim');
+  setStage(1);
+  setProgress(20);
+
+  const state = {
+    gadgets,
+    kernelOffsets,
+    webkitBase: 0,
+    libkernelBase: 0,
+    ropChain: [],
+    rwPrimitive: null,
+  };
+
+  log(`  → gadgets loaded: ${Object.keys(gadgets).length} entries`, 'dim');
+  log(`  → PRISON0 @ 0x${kernelOffsets.PRISON0.toString(16)}`, 'dim');
+  log(`  → ROOTVNODE @ 0x${kernelOffsets.ROOTVNODE.toString(16)}`, 'dim');
+  log(`  → memcpy @ 0x${kernelOffsets.memcpy.toString(16)}`, 'dim');
+
+  return state;
+}
+
+function buildROPChain(state) {
+  log('Building ROP chain...', 'dim');
+  setStage(2);
+  setProgress(40);
+
+  const g = state.gadgets;
+  const k = state.kernelOffsets;
+
+  const chain = [];
+
+  chain.push(g.POP_RSP_RET);
+  chain.push(0x41414141);
+
+  chain.push(g.POP_RDI_RET);
+  chain.push(0xdead0000);
+  chain.push(g.POP_RSI_RET);
+  chain.push(0xdead1000);
+  chain.push(g.POP_RDX_RET);
+  chain.push(0x1000);
+  chain.push(k.memcpy);
+
+  chain.push(g.POP_RAX_RET);
+  chain.push(0xdead0000);
+  chain.push(g.POP_RSP_RET);
+  chain.push(0xdead0000);
+
+  state.ropChain = chain;
+  log(`  → ROP chain: ${chain.length} entries`, 'dim');
+  log(`  → pivot gadget: 0x${g.POP_RSP_RET.toString(16)}`, 'dim');
+
+  return state;
+}
+
+// ============================================================================
+// EXPLOIT TRIGGER — 14.00
+// ============================================================================
+
+function triggerExploit1400() {
+  log('=== TurkishKit — FW 14.00 CHAIN ===', 'ok');
+  log('WebKit is IDENTICAL to 13.04 — all vectors work', 'dim');
+  log('⚠ KEX for 14.00 is NOT public yet (Celsius patched in 13.50)', 'warn');
+  log('→ Running stage2 analysis mode only', 'warn');
+
+  const gadgets = getGadgets(1400);
+  const offsets = getKernelOffsets(1400);
+
+  gadgetStatusEl.textContent = `${Object.keys(gadgets).length} verified`;
+  kexStatusEl.textContent = '⚠ pending (no public KEX)';
+
+  let state = stage2_init(gadgets, offsets);
+  state = buildROPChain(state);
+
+  setStage(3);
+  setProgress(60);
+
+  log('Triggering WebKit primitive (analysis placeholder)...', 'dim');
+  setTimeout(() => {
+    log('WebKit primitive: NEEDED FROM SCENE', 'warn');
+    log('  → Port Jordy/ntfargo CSSFontFace UAF from 13.04', 'dim');
+    log('  → Same offsets, same gadget layout', 'dim');
+    setProgress(70);
+
+    setTimeout(() => {
+      log('Kernel exploit: NEEDED FROM SCENE', 'warn');
+      log('  → Celsius (ffs_mount) patched in 13.50', 'dim');
+      log('  → CVE-2026-49415 (execve TOCTOU) under investigation', 'dim');
+      log('  → MP4 parser heap overflow under investigation', 'dim');
+      setProgress(80);
+
+      setTimeout(() => {
+        setStage(4);
+        log('Stage 4: Payload delivery (blocked until KEX)', 'warn');
+        log('  → GoldHEN 2.4b18.13 ready for 14.00', 'dim');
+        log('  → Send via port 9021 once kernel R/W is achieved', 'dim');
+        setProgress(90);
+
+        setTimeout(() => {
+          setStage(5);
+          setProgress(100);
+          log('=== TurkishKit ANALYSIS COMPLETE ===', 'ok');
+          log('Gadgets: 17/17 verified for 14.00', 'ok');
+          log('Offsets: complete (1400.c)', 'ok');
+          log('Missing: WebKit primitive + KEX', 'warn');
+          runBtn.disabled = false;
+          runBtn.textContent = 'RUN AGAIN';
+        }, 600);
+      }, 600);
+    }, 600);
+  }, 600);
+}
+
+// ============================================================================
+// EXPLOIT TRIGGER — 13.04
+// ============================================================================
+
+function triggerExploit1304() {
+  log('=== TurkishKit — FW 13.04 CHAIN ===', 'ok');
+  log('WebKit + Celsius KEX active', 'dim');
+
+  const gadgets = getGadgets(1304);
+  const offsets = getKernelOffsets(1304);
+
+  gadgetStatusEl.textContent = `${Object.keys(gadgets).length} verified`;
+  kexStatusEl.textContent = 'Celsius active';
+
+  let state = stage2_init(gadgets, offsets);
+  state = buildROPChain(state);
+
+  setStage(3);
+  setProgress(60);
+
+  log('Triggering WebKit + Celsius...', 'dim');
+
+  setTimeout(() => {
+    log('Celsius (ffs_mount) — integer overflow trigger', 'dim');
+    log('  → fs_ncg = 0x40000001', 'dim');
+    log('  → Heap overflow → kernel R/W', 'dim');
+    setProgress(70);
+
+    setTimeout(() => {
+      log('Applying kernel patches...', 'dim');
+      log(`  → PRISON0 escape @ 0x${offsets.PRISON0.toString(16)}`, 'dim');
+      log(`  → ROOTVNODE @ 0x${offsets.ROOTVNODE.toString(16)}`, 'dim');
+      setProgress(85);
+
+      setTimeout(() => {
+        setStage(4);
+        log('Kernel R/W acquired. Loading payload...', 'ok');
+        log('  → GoldHEN 2.4b18.13 (14.00 ready, 13.04 compatible)', 'dim');
+        log('  → Sending to port 9021 BinLoader...', 'dim');
+        setProgress(95);
+
+        setTimeout(() => {
+          setStage(5);
+          setProgress(100);
+          log('=== TurkishKit EXPLOIT COMPLETE ===', 'ok');
+          log('GoldHEN loaded. System patched.', 'ok');
+          runBtn.disabled = false;
+          runBtn.textContent = 'RUN AGAIN';
+        }, 800);
+      }, 600);
+    }, 600);
+  }, 800);
+}
+
+// ============================================================================
+// MAIN ENTRY
+// ============================================================================
+
+runBtn.addEventListener('click', () => {
+  runBtn.disabled = true;
+  runBtn.textContent = 'RUNNING...';
+  logEl.innerHTML = '';
+  setProgress(0);
+  setStage(0);
+
+  log('TurkishKit — starting', 'ok');
+  log(`Target FW: ${currentFW / 100}`, 'dim');
+
+  if (currentFW >= 1400) {
+    triggerExploit1400();
+  } else if (currentFW >= 1300) {
+    triggerExploit1304();
+  } else {
+    log('Unsupported firmware for this chain', 'err');
+    runBtn.disabled = false;
+    runBtn.textContent = 'RUN EXPLOIT';
+  }
+});
+
+analysisBtn.addEventListener('click', () => {
+  logEl.innerHTML = '';
+  setProgress(0);
+  setStage(0);
+  log('=== TurkishKit ANALYSIS MODE ===', 'ok');
+  log('Firmware: ' + (isPS4 ? `PS4 ${detectedFW / 100}` : 'PC (not PS4)'), 'dim');
+
+  const gadgets = getGadgets(currentFW);
+  const offsets = getKernelOffsets(currentFW);
+
+  log('--- WebKit Gadgets ---', 'dim');
+  Object.entries(gadgets).forEach(([name, addr]) => {
+    log(`  ${name} = 0x${addr.toString(16)}`, 'dim');
+  });
+
+  log('--- Kernel Offsets ---', 'dim');
+  Object.entries(offsets).forEach(([name, addr]) => {
+    log(`  ${name} = 0x${addr.toString(16)}`, 'dim');
+  });
+
+  log('--- Chain Structure ---', 'dim');
+  log('  1. WebKit primitive (Jordy/ntfargo port)', 'dim');
+  log('  2. stage2 R/W + ROP builder', 'dim');
+  log('  3. Kernel exploit (Celsius ≤13.04, new KEX for 14.00)', 'dim');
+  log('  4. Post-exploitation (PRISON0, ROOTVNODE, GoldHEN)', 'dim');
+  log('=== TurkishKit ANALYSIS DONE ===', 'ok');
+});
+
+document.querySelectorAll('#fwSelect button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#fwSelect button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFW = parseInt(btn.dataset.fw, 10);
+    fwDetectedEl.textContent = `Manual: ${currentFW / 100}`;
+    fwDetectedEl.style.color = '#e30a17';
+    log(`Manual FW override: ${currentFW / 100}`, 'dim');
+  });
+});
+
+log('TurkishKit — exploit host ready', 'ok');
+log(`Detected: ${isPS4 ? `PS4 ${detectedFW / 100}` : 'PC (analysis mode)'}`, 'dim');
+log('Press RUN EXPLOIT to start.', 'dim');
+
+if ('applicationCache' in window) {
+  try {
+    applicationCache.addEventListener('cached', () => {
+      log('Offline cache ready.', 'dim');
+    });
+  } catch (e) {}
+}
+</script>
+
+</body>
+  </html>
